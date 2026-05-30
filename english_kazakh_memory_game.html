@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>English-Kazakh Memory Matching Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #dff3ff, #f4fff3);
+      color: #123;
+      min-height: 100vh;
+      padding: 18px;
+    }
+
+    .app {
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 10px 0 6px;
+      font-size: 2rem;
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      color: #456;
+      font-size: 1rem;
+    }
+
+    .top-panel {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .badge {
+      background: white;
+      border-radius: 16px;
+      padding: 10px 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      font-weight: bold;
+    }
+
+    button {
+      border: none;
+      border-radius: 16px;
+      padding: 10px 16px;
+      background: #2563eb;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .message {
+      min-height: 44px;
+      background: white;
+      border-radius: 18px;
+      padding: 12px;
+      margin-bottom: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      font-weight: bold;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .card {
+      height: 105px;
+      border-radius: 18px;
+      background: #38bdf8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      font-size: 1.05rem;
+      font-weight: bold;
+      box-shadow: 0 5px 12px rgba(0,0,0,0.15);
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.18s, background 0.18s;
+    }
+
+    .card:hover {
+      transform: scale(1.03);
+    }
+
+    .card.hidden {
+      background: #38bdf8;
+      color: white;
+      font-size: 2rem;
+    }
+
+    .card.revealed {
+      background: white;
+      color: #111827;
+      border: 3px solid #93c5fd;
+    }
+
+    .card.matched {
+      background: #86efac;
+      color: #064e3b;
+      border: 3px solid #22c55e;
+      cursor: default;
+    }
+
+    .card.wrong {
+      background: #fecaca;
+      border: 3px solid #ef4444;
+    }
+
+    .footer-note {
+      margin-top: 16px;
+      color: #567;
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        padding: 12px;
+      }
+
+      h1 {
+        font-size: 1.45rem;
+      }
+
+      .grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 9px;
+      }
+
+      .card {
+        height: 90px;
+        font-size: 0.9rem;
+        border-radius: 15px;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .card {
+        height: 82px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>English-Kazakh Memory Game</h1>
+    <p class="subtitle">Turn over two cards and match the English word with the Kazakh equivalent.</p>
+
+    <div class="top-panel">
+      <div class="badge">Score: <span id="score">0</span></div>
+      <div class="badge">Mistakes: <span id="mistakes">0</span></div>
+      <button onclick="restartGame()">Restart</button>
+    </div>
+
+    <div id="message" class="message">Click two cards to begin.</div>
+
+    <div id="gameGrid" class="grid"></div>
+
+    <p class="footer-note">Teacher note: edit the WORDS list inside this file to add your own vocabulary.</p>
+  </main>
+
+  <script>
+    const WORDS = [
+      { english: "Hello", kazakh: "Сәлем" },
+      { english: "Book", kazakh: "Кітап" },
+      { english: "Water", kazakh: "Су" },
+      { english: "School", kazakh: "Мектеп" },
+      { english: "Family", kazakh: "Отбасы" },
+      { english: "Friend", kazakh: "Дос" }
+    ];
+
+    let cards = [];
+    let firstCard = null;
+    let secondCard = null;
+    let lockBoard = false;
+    let score = 0;
+    let mistakes = 0;
+
+    const grid = document.getElementById("gameGrid");
+    const message = document.getElementById("message");
+    const scoreText = document.getElementById("score");
+    const mistakesText = document.getElementById("mistakes");
+
+    function makeCards() {
+      let newCards = [];
+
+      WORDS.forEach((pair, index) => {
+        newCards.push({
+          text: pair.english,
+          pairId: index,
+          language: "English",
+          matched: false
+        });
+
+        newCards.push({
+          text: pair.kazakh,
+          pairId: index,
+          language: "Kazakh",
+          matched: false
+        });
+      });
+
+      return shuffle(newCards);
+    }
+
+    function shuffle(array) {
+      let copy = [...array];
+
+      for (let i = copy.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        let temp = copy[i];
+        copy[i] = copy[j];
+        copy[j] = temp;
+      }
+
+      return copy;
+    }
+
+    function drawCards() {
+      grid.innerHTML = "";
+
+      cards.forEach((card, index) => {
+        const cardDiv = document.createElement("div");
+        cardDiv.className = "card hidden";
+        cardDiv.textContent = "?";
+        cardDiv.onclick = () => flipCard(index);
+        grid.appendChild(cardDiv);
+      });
+    }
+
+    function flipCard(index) {
+      if (lockBoard) return;
+
+      const card = cards[index];
+      const cardDiv = grid.children[index];
+
+      if (card.matched) return;
+      if (firstCard && firstCard.index === index) return;
+
+      cardDiv.className = "card revealed";
+      cardDiv.textContent = card.text;
+
+      if (!firstCard) {
+        firstCard = { ...card, index };
+        message.textContent = "Choose one more card.";
+        return;
+      }
+
+      secondCard = { ...card, index };
+      checkMatch();
+    }
+
+    function checkMatch() {
+      lockBoard = true;
+
+      const firstDiv = grid.children[firstCard.index];
+      const secondDiv = grid.children[secondCard.index];
+
+      const samePair = firstCard.pairId === secondCard.pairId;
+      const differentLanguage = firstCard.language !== secondCard.language;
+
+      if (samePair && differentLanguage) {
+        cards[firstCard.index].matched = true;
+        cards[secondCard.index].matched = true;
+
+        firstDiv.className = "card matched";
+        secondDiv.className = "card matched";
+
+        score += 1;
+        scoreText.textContent = score;
+        message.textContent = "Correct! Great job!";
+
+        resetSelection();
+
+        if (score === WORDS.length) {
+          message.textContent = "You win! Excellent work!";
+          celebrate();
+        }
+      } else {
+        mistakes += 1;
+        mistakesText.textContent = mistakes;
+
+        firstDiv.className = "card wrong";
+        secondDiv.className = "card wrong";
+        message.textContent = "Not a match. Try again!";
+
+        setTimeout(() => {
+          firstDiv.className = "card hidden";
+          secondDiv.className = "card hidden";
+          firstDiv.textContent = "?";
+          secondDiv.textContent = "?";
+          resetSelection();
+        }, 900);
+      }
+    }
+
+    function resetSelection() {
+      firstCard = null;
+      secondCard = null;
+      lockBoard = false;
+    }
+
+    function celebrate() {
+      document.body.style.background = "linear-gradient(135deg, #fef3c7, #bbf7d0)";
+    }
+
+    function restartGame() {
+      cards = makeCards();
+      firstCard = null;
+      secondCard = null;
+      lockBoard = false;
+      score = 0;
+      mistakes = 0;
+      scoreText.textContent = score;
+      mistakesText.textContent = mistakes;
+      message.textContent = "Click two cards to begin.";
+      document.body.style.background = "linear-gradient(135deg, #dff3ff, #f4fff3)";
+      drawCards();
+    }
+
+    restartGame();
+  </script>
+</body>
+</html>
